@@ -9,7 +9,7 @@ import model_cnn
 import tensorflow as tf
 
 BATCH_SIZE = 100
-NUM_EPOCHS = 2
+NUM_EPOCHS = 10
 LEARNING_RATE = 1e-5
 
 
