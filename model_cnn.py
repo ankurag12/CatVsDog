@@ -82,3 +82,8 @@ def training(total_loss, learning_rate):
     train_op = optimizer.minimize(total_loss, global_step=gloabl_step)
 
     return train_op
+
+
+def evaluation(logits, true_labels):
+    correct_pred = tf.nn.in_top_k(logits, true_labels, 1)
+    return tf.reduce_sum(tf.cast(correct_pred, tf.int32))

@@ -1,2 +1,4 @@
+Download data from: https://www.kaggle.com/c/dogs-vs-cats/data
+
 * convert_to_records.py is a one-time run for converting jpegs into TFRecords.
 * convert_to_records.py references manage_images.py, which is also a one time run.

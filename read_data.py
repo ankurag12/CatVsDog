@@ -58,10 +58,10 @@ def read_and_decode(filename_queue):
     return image, label
 
 
-def inputs(train, batch_size, num_epochs):
+def inputs(data_set, batch_size, num_epochs):
     """Reads input data num_epochs times.
     Args:
-    train: Selects between the training (True) and validation (False) data.
+    train: Selects between the train , validation and test data.
     batch_size: Number of examples per returned batch.
     num_epochs: Number of times to read the input data, or 0/None to
        train forever.
@@ -75,7 +75,15 @@ def inputs(train, batch_size, num_epochs):
     must be run using e.g. tf.train.start_queue_runners().
     """
     if not num_epochs: num_epochs = None
-    filename = join(DATA_DIR, TRAIN_FILE if train else VALIDATION_FILE)
+    if data_set == 'train':
+        file = TRAIN_FILE
+    elif data_set == 'validation':
+        file = VALIDATION_FILE
+    elif data_set == 'test':
+        file = TEST_FILE
+    else:
+        raise ValueError('data_set should be one of \'train\', \'validation\' or \'test\'')
+    filename = join(DATA_DIR, file)
 
     with tf.name_scope('input'):
         filename_queue = tf.train.string_input_producer(
