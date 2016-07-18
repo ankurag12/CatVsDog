@@ -9,7 +9,7 @@ import model_cnn
 import tensorflow as tf
 
 BATCH_SIZE = 100
-NUM_EPOCHS = 10
+NUM_EPOCHS = 100
 LEARNING_RATE = 1e-3
 
 
@@ -50,7 +50,7 @@ def run_training():
                 duration = time.time() - start_time
                 assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
-                if step % 100 == 0:
+                if step % 10 == 0:
                     print('Step %d : loss = %.5f , training accuracy = %.1f, validation accuracy = %.1f (%.3f sec)'
                           % (step, loss_value, train_acc_val, valid_acc_val, duration))
                 step += 1
