@@ -1,4 +1,21 @@
 Download data from: https://www.kaggle.com/c/dogs-vs-cats/data
 
-* convert_to_records.py is a one-time run for converting jpegs into TFRecords.
-* convert_to_records.py references manage_images.py, which is also a one time run.
+To convert jpegs into TFRecords (one-time run)
+$python convert_to_records.py
+
+Evaluation can be run independently of training.
+Training script saves checkpoint files, which evaluation script can read.
+(Must run training for sufficient time to generate a checkpoint file. Default is 1 epoch)
+
+To train the model:
+$python train_cnn.py
+
+To evaluate the model on validation set:
+$python eval_cnn.py 'validation'
+
+To evaluate the model on test set:
+$python eval_cnn.py 'test'
+
+Currently getting 91% accuracy on validation set.
+
+Code highly inspired from tensorflow tutorials.

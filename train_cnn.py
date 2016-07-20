@@ -4,32 +4,33 @@ from __future__ import print_function
 
 import numpy as np
 import time
+import math
+import os.path
 import read_data
 import model_cnn
 import tensorflow as tf
+import eval_cnn
 
-BATCH_SIZE = 100
+
+CHECKPOINT_DIR = 'tmp/train_data/'
+CHECKPOINT_FILE = 'model.ckpt'
+CHECKPOINT_FILE_PATH = os.path.join(CHECKPOINT_DIR, CHECKPOINT_FILE)
+BATCH_SIZE = model_cnn.BATCH_SIZE
 NUM_EPOCHS = 100
-LEARNING_RATE = 1e-3
+NUM_TRAIN_EXAMPLES = read_data.NUM_TRAIN_EXAMPLES
 
 
 def run_training():
     with tf.Graph().as_default():
-        images, labels = read_data.inputs(data_set='train', batch_size=BATCH_SIZE, num_epochs=NUM_EPOCHS)
+        train_images, train_labels = read_data.inputs(data_set='train', batch_size=BATCH_SIZE, num_epochs=NUM_EPOCHS)
+        train_logits = model_cnn.inference(train_images)
+        train_accuracy = model_cnn.evaluation(train_logits, train_labels)
 
-        logits = model_cnn.inference(images)
+        loss = model_cnn.loss(train_logits, train_labels)
 
-        loss = model_cnn.loss(logits, labels)
+        train_op = model_cnn.training(loss)
 
-        train_op = model_cnn.training(loss, learning_rate=LEARNING_RATE)
-
-        train_accuracy = model_cnn.evaluation(logits, labels)
-
-        # Don't specify number of epochs in validation set, otherwise that limits the training duration as the
-        # validation set is 10 times smaller than the training set
-        val_images, val_labels = read_data.inputs(data_set='validation', batch_size=BATCH_SIZE, num_epochs=None)
-        val_logits = model_cnn.inference(val_images)
-        val_accuracy = model_cnn.evaluation(val_logits, val_labels)
+        saver = tf.train.Saver(tf.all_variables(), max_to_keep=1)
 
         init_op = tf.initialize_all_variables()
 
@@ -42,18 +43,28 @@ def run_training():
 
         try:
             step = 0
+            num_iter_per_epoch = int(math.ceil(NUM_TRAIN_EXAMPLES / BATCH_SIZE))
+
             while not coord.should_stop():
                 start_time = time.time()
 
-                _, loss_value, train_acc_val, valid_acc_val = sess.run([train_op, loss, train_accuracy, val_accuracy])
+                _, loss_value, train_acc_val = sess.run([train_op, loss, train_accuracy])
 
                 duration = time.time() - start_time
                 assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
                 if step % 10 == 0:
-                    print('Step %d : loss = %.5f , training accuracy = %.1f, validation accuracy = %.1f (%.3f sec)'
-                          % (step, loss_value, train_acc_val, valid_acc_val, duration))
+                    print('Step %d : loss = %.5f , training accuracy = %.1f (%.3f sec)'
+                          % (step, loss_value, train_acc_val, duration))
+
+                if step % num_iter_per_epoch == 0 and step > 0: # Do not save for step 0
+                    num_epochs = int(step / num_iter_per_epoch)
+                    saver.save(sess, CHECKPOINT_FILE_PATH, global_step=step)
+                    print('epochs done on training dataset = %d' % num_epochs)
+                    eval_cnn.evaluate('validation', checkpoint_dir=CHECKPOINT_DIR)
+
                 step += 1
+
         except tf.errors.OutOfRangeError:
             print('Done training for %d epochs, %d steps' % (NUM_EPOCHS, step))
         finally:

@@ -93,3 +93,6 @@ ENV/
 
 # .idea folder
 .idea/
+
+# checkpoints folder
+tmp/

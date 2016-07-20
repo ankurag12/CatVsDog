@@ -5,20 +5,24 @@ from __future__ import print_function
 import numpy as np
 from os.path import join
 import tensorflow as tf
+import convert_to_records
 
-# Constants used for dealing with the files, matches convert_to_records.
 TRAIN_FILE = 'train.tfrecords'
 VALIDATION_FILE = 'validation.tfrecords'
 TEST_FILE = 'test.tfrecords'
 #DATA_DIR = 'data/'                     # Local CPU
 DATA_DIR = '/data1/ankur/CatVsDog/'      # Berkeley GPU
-NUM_CLASSES = 2
-IMG_HEIGHT = 128
-IMG_WIDTH = 128
-IMG_CHANNELS = 3
+NUM_CLASSES = len(convert_to_records.IMG_CLASSES)
+IMG_HEIGHT = convert_to_records.IMG_HEIGHT
+IMG_WIDTH = convert_to_records.IMG_WIDTH
+IMG_CHANNELS = convert_to_records.IMG_CHANNELS
 IMG_PIXELS = IMG_HEIGHT * IMG_WIDTH * IMG_CHANNELS
+NUM_TRAIN_EXAMPLES = convert_to_records.NUM_TRAIN_EXAMPLES
+NUM_VALIDATION_EXAMPLES = convert_to_records.NUM_VALIDATION_EXAMPLES
+NUM_TEST_EXAMPLES = convert_to_records.NUM_TEST_EXAMPLES
 
 
+# This function is not being used
 def dense_to_one_hot(labels_dense, num_classes):
     """Convert class labels from scalars to one-hot vectors."""
     num_labels = labels_dense.shape[0]
@@ -74,7 +78,8 @@ def inputs(data_set, batch_size, num_epochs):
     Note that an tf.train.QueueRunner is added to the graph, which
     must be run using e.g. tf.train.start_queue_runners().
     """
-    if not num_epochs: num_epochs = None
+    if not num_epochs:
+        num_epochs = None
     if data_set == 'train':
         file = TRAIN_FILE
     elif data_set == 'validation':
