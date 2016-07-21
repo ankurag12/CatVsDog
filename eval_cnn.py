@@ -11,10 +11,11 @@ import tensorflow as tf
 NUM_TRAIN_EXAMPLES = read_data.NUM_TRAIN_EXAMPLES
 NUM_VALIDATION_EXAMPLES = read_data.NUM_VALIDATION_EXAMPLES
 NUM_TEST_EXAMPLES = read_data.NUM_TEST_EXAMPLES
+EVAL_DATA_DIR = 'tmp/eval_data'
 BATCH_SIZE = 64
 
 
-def evaluate(data_set, checkpoint_dir='tmp/train_data/'):
+def evaluate(data_set, checkpoint_dir = 'tmp/train_data'):
     with tf.Graph().as_default():
 
         if data_set == 'validation':
@@ -42,7 +43,7 @@ def evaluate(data_set, checkpoint_dir='tmp/train_data/'):
             if ckpt and ckpt.model_checkpoint_path:
                 saver.restore(sess, ckpt.model_checkpoint_path)
             else:
-                print('No checkpoint file found')
+                print('No checkpoint file found at %s' % checkpoint_dir)
                 return
 
             coord = tf.train.Coordinator()
@@ -61,7 +62,14 @@ def evaluate(data_set, checkpoint_dir='tmp/train_data/'):
                     step += 1
 
                 acc_full_epoch /= num_iter
+                tf.scalar_summary('validation_accuracy', acc_full_epoch)
+                summary_op = tf.merge_all_summaries()
+                summary_writer = tf.train.SummaryWriter(EVAL_DATA_DIR)
+                summary_str = sess.run(summary_op)
+                summary_writer.add_summary(summary_str, step)
+
                 print('Accuracy on full %s dataset = %.1f' % (data_set, acc_full_epoch))
+
 
             except Exception as e:
                 coord.request_stop(e)

@@ -9,16 +9,21 @@ import tensorflow as tf
 NUM_TRAIN_EXAMPLES = read_data.NUM_TRAIN_EXAMPLES
 NUM_CLASSES = read_data.NUM_CLASSES
 DROP_PROB = 0.5
-REG_STRENGTH = 0.01
+REG_STRENGTH = 0.001
 INITIAL_LEARNING_RATE = 1e-3
 LR_DECAY_FACTOR = 0.5
 EPOCHS_PER_LR_DECAY = 5
 MOVING_AVERAGE_DECAY = 0.9999
-BATCH_SIZE = 128
+BATCH_SIZE = 64
+
+
+def _activation_summary(x):
+    tf.histogram_summary(x.op.name + '/activations', x)
+    tf.scalar_summary(x.op.name + '/sparsity', tf.nn.zero_fraction(x))
 
 
 # Use tf.get_variable() instead of tf.Variable() to be able to reuse variables for evaluation run
-# This was necessary when sharing variables between train and eval run.
+# ^This was necessary when sharing variables between train and eval run.
 # Not necessary now as eval run is based off saved checkpoints, which have moving average of the variables
 def _variable_with_weight_decay(name, shape, stddev, wd):
     var = tf.get_variable(name, shape, initializer=tf.truncated_normal_initializer(stddev=stddev))
@@ -36,6 +41,7 @@ def inference(images):
         conv = tf.nn.conv2d(images, weights, [1, 1, 1, 1], padding='SAME')
         bias = tf.nn.bias_add(conv, biases)
         conv1 = tf.nn.relu(bias, name=scope.name)
+        _activation_summary(conv1)
 
     # conv 2
     with tf.variable_scope('conv2') as scope:
@@ -44,6 +50,7 @@ def inference(images):
         conv = tf.nn.conv2d(conv1, weights, [1, 1, 1, 1], padding='SAME')
         bias = tf.nn.bias_add(conv, biases)
         conv2 = tf.nn.relu(bias, name=scope.name)
+        _activation_summary(conv2)
 
     # pool 1
     with tf.variable_scope('pool1') as scope:
@@ -56,6 +63,7 @@ def inference(images):
         conv = tf.nn.conv2d(pool1, weights, [1, 1, 1, 1], padding='SAME')
         bias = tf.nn.bias_add(conv, biases)
         conv3 = tf.nn.relu(bias, name=scope.name)
+        _activation_summary(conv3)
 
     # conv 4
     with tf.variable_scope('conv4') as scope:
@@ -64,6 +72,7 @@ def inference(images):
         conv = tf.nn.conv2d(conv3, weights, [1, 1, 1, 1], padding='SAME')
         bias = tf.nn.bias_add(conv, biases)
         conv4 = tf.nn.relu(bias, name=scope.name)
+        _activation_summary(conv4)
 
     # pool 2
     with tf.variable_scope('pool2') as scope:
@@ -76,6 +85,7 @@ def inference(images):
         conv = tf.nn.conv2d(pool2, weights, [1, 1, 1, 1], padding='SAME')
         bias = tf.nn.bias_add(conv, biases)
         conv5 = tf.nn.relu(bias, name=scope.name)
+        _activation_summary(conv5)
 
     # conv 6
     with tf.variable_scope('conv6') as scope:
@@ -84,11 +94,11 @@ def inference(images):
         conv = tf.nn.conv2d(conv5, weights, [1, 1, 1, 1], padding='SAME')
         bias = tf.nn.bias_add(conv, biases)
         conv6 = tf.nn.relu(bias, name=scope.name)
+        _activation_summary(conv6)
 
     # pool 3
     with tf.variable_scope('pool3') as scope:
         pool3 = tf.nn.max_pool(conv6, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
-
 
     # fully connected 1
     with tf.variable_scope('fc1') as scope:
@@ -98,12 +108,14 @@ def inference(images):
         weights = _variable_with_weight_decay('weights', shape=[dim, 384], stddev=1/np.sqrt(dim), wd=REG_STRENGTH)
         biases = tf.get_variable('biases', shape = [384], initializer=tf.constant_initializer(0.0))
         fc1 = tf.nn.relu(tf.matmul(pool3_flat, weights) + biases, name=scope.name)
+        _activation_summary(fc1)
 
     # fully connected 2
     with tf.variable_scope('fc2') as scope:
         weights = _variable_with_weight_decay('weights', shape=[384, 192], stddev=1/np.sqrt(384), wd=REG_STRENGTH)
         biases = tf.get_variable('biases', shape = [192], initializer=tf.constant_initializer(0.0))
         fc2 = tf.nn.relu(tf.matmul(fc1, weights) + biases, name=scope.name)
+        _activation_summary(fc2)
 
     # dropout
         fc2_drop = tf.nn.dropout(fc2, DROP_PROB)
@@ -113,6 +125,7 @@ def inference(images):
         weights = _variable_with_weight_decay('weights', shape=[192, NUM_CLASSES], stddev=1/np.sqrt(192), wd=0.000)
         biases = tf.get_variable('biases', shape = [NUM_CLASSES], initializer=tf.constant_initializer(0.0))
         logits = tf.add(tf.matmul(fc2_drop, weights), biases, name=scope.name)
+        _activation_summary(logits)
 
     return logits
 
@@ -126,13 +139,10 @@ def loss(logits, labels):
     return total_loss
 
 
-def loss(logits, labels):
-    labels = tf.cast(labels, tf.int64)
-    cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits, labels, name='xentropy')
-    data_loss = tf.reduce_mean(cross_entropy, name='xentropy_mean')
-    tf.add_to_collection('losses', data_loss)
-    total_loss = tf.add_n(tf.get_collection('losses'), name='total_loss')
-    return total_loss
+def _loss_summaries(total_loss):
+    losses = tf.get_collection('losses')
+    for l in losses + [total_loss]:
+        tf.scalar_summary(l.op.name, l)
 
 
 def training(total_loss):
@@ -140,9 +150,15 @@ def training(total_loss):
     global_step = tf.Variable(0, name='global_step', trainable=False)
     decay_steps = int(EPOCHS_PER_LR_DECAY * NUM_TRAIN_EXAMPLES / BATCH_SIZE)
     learning_rate = tf.train.exponential_decay(INITIAL_LEARNING_RATE, global_step, decay_steps, LR_DECAY_FACTOR, staircase=True)
-    optimizer = tf.train.AdamOptimizer(learning_rate)
+    tf.scalar_summary('learning_rate', learning_rate)
 
+    _loss_summaries(total_loss)
+
+    optimizer = tf.train.AdamOptimizer(learning_rate)
     opt_op = optimizer.minimize(total_loss, global_step=global_step)
+
+    for var in tf.trainable_variables():
+        tf.histogram_summary(var.op.name, var)
 
     mov_average_object = tf.train.ExponentialMovingAverage(MOVING_AVERAGE_DECAY, global_step)
     moving_average_op = mov_average_object.apply(tf.trainable_variables())

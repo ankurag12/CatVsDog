@@ -16,6 +16,15 @@ $python eval_cnn.py 'validation'
 To evaluate the model on test set:
 $python eval_cnn.py 'test'
 
+To visualize training data on TensorBoard:
+$tensorboard --logdir=tmp/train_data/
+
+To visualize evaluation data on TensorBoard:
+$tensorboard --logdir=tmp/eval_data/
+
 Currently getting 91% accuracy on validation set.
+
+Jupyter Notebooks were made initally for learning and debugging purpose.
+Not part of the main project.
 
 Code highly inspired from tensorflow tutorials.

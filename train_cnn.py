@@ -12,9 +12,9 @@ import tensorflow as tf
 import eval_cnn
 
 
-CHECKPOINT_DIR = 'tmp/train_data/'
+TRAIN_DATA_DIR = 'tmp/train_data/'
 CHECKPOINT_FILE = 'model.ckpt'
-CHECKPOINT_FILE_PATH = os.path.join(CHECKPOINT_DIR, CHECKPOINT_FILE)
+CHECKPOINT_FILE_PATH = os.path.join(TRAIN_DATA_DIR, CHECKPOINT_FILE)
 BATCH_SIZE = model_cnn.BATCH_SIZE
 NUM_EPOCHS = 100
 NUM_TRAIN_EXAMPLES = read_data.NUM_TRAIN_EXAMPLES
@@ -25,12 +25,15 @@ def run_training():
         train_images, train_labels = read_data.inputs(data_set='train', batch_size=BATCH_SIZE, num_epochs=NUM_EPOCHS)
         train_logits = model_cnn.inference(train_images)
         train_accuracy = model_cnn.evaluation(train_logits, train_labels)
+        tf.scalar_summary('train_accuracy', train_accuracy)
 
         loss = model_cnn.loss(train_logits, train_labels)
 
         train_op = model_cnn.training(loss)
 
         saver = tf.train.Saver(tf.all_variables(), max_to_keep=1)
+
+        summary_op = tf.merge_all_summaries()
 
         init_op = tf.initialize_all_variables()
 
@@ -40,6 +43,8 @@ def run_training():
 
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+
+        summary_writer = tf.train.SummaryWriter(TRAIN_DATA_DIR, sess.graph)
 
         try:
             step = 0
@@ -56,12 +61,14 @@ def run_training():
                 if step % 10 == 0:
                     print('Step %d : loss = %.5f , training accuracy = %.1f (%.3f sec)'
                           % (step, loss_value, train_acc_val, duration))
+                    summary_str = sess.run(summary_op)
+                    summary_writer.add_summary(summary_str, step)
 
                 if step % num_iter_per_epoch == 0 and step > 0: # Do not save for step 0
                     num_epochs = int(step / num_iter_per_epoch)
                     saver.save(sess, CHECKPOINT_FILE_PATH, global_step=step)
                     print('epochs done on training dataset = %d' % num_epochs)
-                    eval_cnn.evaluate('validation', checkpoint_dir=CHECKPOINT_DIR)
+                    eval_cnn.evaluate('validation', checkpoint_dir=TRAIN_DATA_DIR)
 
                 step += 1
 

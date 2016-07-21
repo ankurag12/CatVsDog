@@ -10,8 +10,8 @@ import convert_to_records
 TRAIN_FILE = 'train.tfrecords'
 VALIDATION_FILE = 'validation.tfrecords'
 TEST_FILE = 'test.tfrecords'
-#DATA_DIR = 'data/'                     # Local CPU
-DATA_DIR = '/data1/ankur/CatVsDog/'      # Berkeley GPU
+DATA_DIR = 'data/'                     # Local CPU
+#DATA_DIR = '/data1/ankur/CatVsDog/'      # Berkeley GPU
 NUM_CLASSES = len(convert_to_records.IMG_CLASSES)
 IMG_HEIGHT = convert_to_records.IMG_HEIGHT
 IMG_WIDTH = convert_to_records.IMG_WIDTH
@@ -101,10 +101,10 @@ def inputs(data_set, batch_size, num_epochs):
     # Shuffle the examples and collect them into batch_size batches.
     # (Internally uses a RandomShuffleQueue.)
     # We run this in two threads to avoid being a bottleneck.
-    images, sparse_labels = tf.train.shuffle_batch(
+    images, labels = tf.train.shuffle_batch(
         [image, label], batch_size=batch_size, num_threads=2,
         capacity=1000 + 3 * batch_size,
         # Ensures a minimum amount of shuffling of examples.
         min_after_dequeue=1000)
 
-    return images, sparse_labels
+    return images, labels
